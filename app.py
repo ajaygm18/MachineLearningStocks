@@ -49,7 +49,13 @@ config = MARKET_CONFIG.get(MARKET, MARKET_CONFIG['INDIAN'])
 cached_model = None
 cached_data = None
 
-OUTPERFORMANCE = 10
+# Optimized outperformance threshold for high precision (25% instead of 10%)
+# This ensures we only predict stocks that significantly outperform the market
+OUTPERFORMANCE = 25
+
+# Minimum probability threshold for predictions (70% confidence required)
+# This filters out low-confidence predictions and reduces false positives
+MIN_PROBABILITY_THRESHOLD = 0.70
 
 
 def load_data():
@@ -96,7 +102,16 @@ def train_model():
                 OUTPERFORMANCE,
             )
         )
-        cached_model = RandomForestClassifier(n_estimators=100, random_state=0)
+        # Improved Random Forest with better hyperparameters for higher precision
+        cached_model = RandomForestClassifier(
+            n_estimators=200,  # More trees for better accuracy
+            max_depth=10,  # Limit depth to prevent overfitting
+            min_samples_split=20,  # Require more samples to split
+            min_samples_leaf=10,  # Require more samples in leaf nodes
+            max_features='sqrt',  # Use sqrt of features for each split
+            class_weight='balanced',  # Handle class imbalance
+            random_state=42
+        )
         cached_model.fit(X_train, y_train)
     return cached_model
 
@@ -134,17 +149,29 @@ def backtest():
         )
         z = np.array(data[["stock_p_change", index_col]])
 
-        # Split the data
+        # Split the data with stratification to maintain class balance
         X_train, X_test, y_train, y_test, z_train, z_test = train_test_split(
-            X, y, z, test_size=0.2, random_state=42
+            X, y, z, test_size=0.2, random_state=42, stratify=y
         )
 
-        # Train model
-        clf = RandomForestClassifier(n_estimators=100, random_state=0)
+        # Train improved model
+        clf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            max_features='sqrt',
+            class_weight='balanced',
+            random_state=42
+        )
         clf.fit(X_train, y_train)
 
-        # Predictions
-        y_pred = clf.predict(X_test)
+        # Get probability predictions
+        y_proba = clf.predict_proba(X_test)
+        
+        # Only predict stocks with high confidence (>60% probability)
+        y_pred = np.zeros(len(y_test), dtype=int)
+        y_pred[y_proba[:, 1] >= MIN_PROBABILITY_THRESHOLD] = 1
         
         accuracy = accuracy_score(y_test, y_pred)
         precision = precision_score(y_test, y_pred, zero_division=0)
@@ -208,14 +235,15 @@ def predict():
         X_test = forward_data[features].values
         tickers = forward_data["Ticker"].values
 
-        # Get predictions
-        y_pred = model.predict(X_test)
+        # Get prediction probabilities first
+        y_proba = model.predict_proba(X_test)
+        
+        # Only predict stocks with high confidence (>60% probability)
+        y_pred = np.zeros(len(X_test), dtype=int)
+        y_pred[y_proba[:, 1] >= MIN_PROBABILITY_THRESHOLD] = 1
         
         # Get predicted stocks
         predicted_stocks = tickers[y_pred == 1].tolist()
-        
-        # Get prediction probabilities
-        y_proba = model.predict_proba(X_test)
         
         # Create detailed predictions
         predictions = []
