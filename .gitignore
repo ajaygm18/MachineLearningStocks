@@ -19,3 +19,9 @@ ENV/
 
 # OS files
 .DS_Store
+
+# Flask instance folder
+instance/
+
+# Flask cache
+.webassets-cache
