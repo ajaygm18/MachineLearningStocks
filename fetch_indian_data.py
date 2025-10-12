@@ -178,6 +178,45 @@ def calculate_returns(prices_df, index_df):
     
     return pd.DataFrame(returns_data)
 
+def create_training_data_with_fundamentals(returns_df, fundamentals_df):
+    """Merge returns data with fundamental data to create complete training dataset"""
+    print("Creating comprehensive training dataset with fundamental features...")
+    
+    # Get the feature columns from fundamentals (excluding base columns)
+    base_cols = ['Ticker', 'Date', 'Unix', 'Price', 'NIFTY50', 'NIFTY50_p_change', 'stock_p_change']
+    feature_cols = [col for col in fundamentals_df.columns if col not in base_cols]
+    
+    # Create a mapping of ticker to fundamental values (use current values for all historical data)
+    ticker_fundamentals = {}
+    for _, row in fundamentals_df.iterrows():
+        ticker = row['Ticker']
+        ticker_fundamentals[ticker] = {col: row[col] for col in feature_cols}
+    
+    # Add fundamental features to each row of returns data
+    enhanced_data = []
+    for _, row in tqdm(returns_df.iterrows(), total=len(returns_df), desc="Adding fundamentals"):
+        ticker = row['Ticker']
+        new_row = row.to_dict()
+        
+        # Add fundamental data for this ticker
+        if ticker in ticker_fundamentals:
+            new_row.update(ticker_fundamentals[ticker])
+        else:
+            # Add NaN for missing fundamentals
+            for col in feature_cols:
+                new_row[col] = np.nan
+        
+        enhanced_data.append(new_row)
+    
+    # Create final dataframe with proper column order
+    final_cols = ['Date', 'Unix', 'Ticker', 'Price', 'stock_p_change', 'NIFTY50', 'NIFTY50_p_change'] + feature_cols
+    enhanced_df = pd.DataFrame(enhanced_data)
+    
+    # Reorder columns
+    enhanced_df = enhanced_df[final_cols]
+    
+    return enhanced_df
+
 def main():
     """Main function to fetch and prepare Indian stock data"""
     print("="*80)
@@ -206,29 +245,29 @@ def main():
         fundamentals_df['stock_p_change'] = np.nan
         
         fundamentals_df.to_csv('indian_forward_sample.csv', index=False)
-        print(f"✅ Forward sample saved: {len(fundamentals_df)} stocks")
+        print(f"✅ Forward sample saved: {len(fundamentals_df)} stocks with {len(fundamentals_df.columns)} features")
     
     # Calculate historical returns and create training dataset
-    if nifty_df is not None and not prices_df.empty:
+    if nifty_df is not None and not prices_df.empty and not fundamentals_df.empty:
         print("\nCalculating historical returns for training data...")
         returns_df = calculate_returns(prices_df, nifty_df)
         
         if not returns_df.empty:
-            # Merge with fundamental data (simplified - using current fundamentals)
-            # In production, you'd want historical fundamental data
-            keystats_df = returns_df.copy()
+            # Merge returns with fundamental data to create complete training dataset
+            keystats_df = create_training_data_with_fundamentals(returns_df, fundamentals_df)
             keystats_df.to_csv('indian_keystats.csv', index=False)
-            print(f"✅ Training data saved: {len(keystats_df)} records")
+            print(f"✅ Training data saved: {len(keystats_df)} records with {len(keystats_df.columns)} features")
     
     print("\n" + "="*80)
     print("✅ Data fetching complete!")
     print("="*80)
     print("\nFiles created:")
-    print("  - nifty50_index.csv")
-    print("  - indian_stock_prices.csv") 
-    print("  - indian_forward_sample.csv")
-    print("  - indian_keystats.csv")
-    print("\nNote: To use this data, update app.py to load these files instead of the US data.")
+    print("  - nifty50_index.csv - NIFTY 50 index historical data")
+    print("  - indian_stock_prices.csv - Stock price history") 
+    print("  - indian_forward_sample.csv - Current data with fundamentals")
+    print("  - indian_keystats.csv - Training data with all features")
+    print("\nThe Indian market data is ready to use!")
+    print("Run with: export MARKET=INDIAN && python app.py")
 
 if __name__ == "__main__":
     main()

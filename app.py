@@ -58,8 +58,13 @@ def load_data():
     if cached_data is None:
         keystats_file = config['keystats_file']
         if os.path.exists(keystats_file):
-            cached_data = pd.read_csv(keystats_file, index_col="Date" if "Date" in pd.read_csv(keystats_file, nrows=1).columns else None)
-            cached_data.dropna(axis=0, how="any", inplace=True)
+            cached_data = pd.read_csv(keystats_file)
+            # Only drop rows where core columns are missing (not fundamental features)
+            core_cols = ['Date', 'Unix', 'Ticker', 'Price', 'stock_p_change', config['index_column']]
+            cached_data.dropna(subset=core_cols, inplace=True)
+            # Set Date as index if it exists
+            if 'Date' in cached_data.columns:
+                cached_data = cached_data.set_index('Date')
         else:
             # Fallback to US data if Indian data not available
             cached_data = pd.read_csv("keystats.csv", index_col="Date")
@@ -73,6 +78,10 @@ def train_model():
     if cached_model is None:
         data = load_data()
         features = data.columns[6:]
+        
+        # Fill NaN values in features with 0
+        data[features] = data[features].fillna(0)
+        
         X_train = data[features].values
         
         # Use the appropriate index column based on market
@@ -107,6 +116,10 @@ def backtest():
     try:
         data = load_data()
         features = data.columns[6:]
+        
+        # Fill NaN values in features with 0
+        data[features] = data[features].fillna(0)
+        
         X = data[features].values
         
         # Use the appropriate index column based on market
@@ -181,8 +194,17 @@ def predict():
         forward_data = pd.read_csv(forward_file)
         if "Date" in forward_data.columns:
             forward_data = forward_data.set_index("Date")
-        forward_data.dropna(axis=0, how="any", inplace=True)
-        features = forward_data.columns[6:]
+        
+        # Only drop rows where Ticker is missing, keep rows with NaN features
+        forward_data = forward_data[forward_data["Ticker"].notna()]
+        
+        # Get features from training data to match
+        training_data = load_data()
+        features = training_data.columns[6:]
+        
+        # Fill NaN values in features with 0 for prediction
+        forward_data[features] = forward_data[features].fillna(0)
+        
         X_test = forward_data[features].values
         tickers = forward_data["Ticker"].values
 
