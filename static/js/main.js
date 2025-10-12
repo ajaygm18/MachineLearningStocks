@@ -40,6 +40,10 @@ function loadDatasetInfo() {
             document.getElementById('date-range').textContent = `${data.date_range.start} to ${data.date_range.end}`;
             document.getElementById('status').textContent = 'Active';
             document.getElementById('status').style.color = '#10b981';
+            
+            // Update market info
+            const marketInfo = `${data.market} Market | ${data.index_name} | Currency: ${data.currency}`;
+            document.getElementById('market-info').textContent = marketInfo;
         })
         .catch(error => {
             console.error('Error loading dataset info:', error);

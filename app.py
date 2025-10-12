@@ -1,6 +1,7 @@
 """
 Flask Web Application for MachineLearningStocks
 Provides a full-stack interface for stock prediction and backtesting
+Supports both US (S&P 500) and Indian (NIFTY 50) stock markets
 """
 
 from flask import Flask, render_template, jsonify, request
@@ -19,6 +20,31 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# Configuration for market selection
+# Set to 'INDIAN' for NIFTY 50 or 'US' for S&P 500
+MARKET = os.environ.get('MARKET', 'INDIAN')  # Default to Indian market
+
+# Market-specific configurations
+MARKET_CONFIG = {
+    'US': {
+        'keystats_file': 'keystats.csv',
+        'forward_file': 'forward_sample.csv',
+        'index_name': 'S&P 500',
+        'index_column': 'SP500_p_change',
+        'currency': 'USD'
+    },
+    'INDIAN': {
+        'keystats_file': 'indian_keystats.csv',
+        'forward_file': 'indian_forward_sample.csv',
+        'index_name': 'NIFTY 50',
+        'index_column': 'NIFTY50_p_change',
+        'currency': 'INR'
+    }
+}
+
+# Get current market config
+config = MARKET_CONFIG.get(MARKET, MARKET_CONFIG['INDIAN'])
+
 # Global variables to cache models
 cached_model = None
 cached_data = None
@@ -30,8 +56,14 @@ def load_data():
     """Load and cache the training data"""
     global cached_data
     if cached_data is None:
-        cached_data = pd.read_csv("keystats.csv", index_col="Date")
-        cached_data.dropna(axis=0, how="any", inplace=True)
+        keystats_file = config['keystats_file']
+        if os.path.exists(keystats_file):
+            cached_data = pd.read_csv(keystats_file, index_col="Date" if "Date" in pd.read_csv(keystats_file, nrows=1).columns else None)
+            cached_data.dropna(axis=0, how="any", inplace=True)
+        else:
+            # Fallback to US data if Indian data not available
+            cached_data = pd.read_csv("keystats.csv", index_col="Date")
+            cached_data.dropna(axis=0, how="any", inplace=True)
     return cached_data
 
 
@@ -42,10 +74,16 @@ def train_model():
         data = load_data()
         features = data.columns[6:]
         X_train = data[features].values
+        
+        # Use the appropriate index column based on market
+        index_col = config['index_column']
+        if index_col not in data.columns:
+            index_col = 'SP500_p_change'  # Fallback
+        
         y_train = list(
             status_calc(
                 data["stock_p_change"],
-                data["SP500_p_change"],
+                data[index_col],
                 OUTPERFORMANCE,
             )
         )
@@ -57,7 +95,10 @@ def train_model():
 @app.route('/')
 def index():
     """Main dashboard page"""
-    return render_template('index.html')
+    return render_template('index.html', 
+                         market=MARKET, 
+                         index_name=config['index_name'],
+                         currency=config['currency'])
 
 
 @app.route('/api/backtest', methods=['GET'])
@@ -67,12 +108,18 @@ def backtest():
         data = load_data()
         features = data.columns[6:]
         X = data[features].values
+        
+        # Use the appropriate index column based on market
+        index_col = config['index_column']
+        if index_col not in data.columns:
+            index_col = 'SP500_p_change'  # Fallback
+        
         y = list(
             status_calc(
-                data["stock_p_change"], data["SP500_p_change"], OUTPERFORMANCE
+                data["stock_p_change"], data[index_col], OUTPERFORMANCE
             )
         )
-        z = np.array(data[["stock_p_change", "SP500_p_change"]])
+        z = np.array(data[["stock_p_change", index_col]])
 
         # Split the data
         X_train, X_test, y_train, y_test, z_train, z_test = train_test_split(
@@ -127,7 +174,13 @@ def predict():
         model = train_model()
         
         # Load forward data
-        forward_data = pd.read_csv("forward_sample.csv", index_col="Date")
+        forward_file = config['forward_file']
+        if not os.path.exists(forward_file):
+            forward_file = "forward_sample.csv"  # Fallback
+        
+        forward_data = pd.read_csv(forward_file)
+        if "Date" in forward_data.columns:
+            forward_data = forward_data.set_index("Date")
         forward_data.dropna(axis=0, how="any", inplace=True)
         features = forward_data.columns[6:]
         X_test = forward_data[features].values
@@ -199,16 +252,34 @@ def dataset_info():
     """Get information about the dataset"""
     try:
         data = load_data()
-        forward_data = pd.read_csv("forward_sample.csv", index_col="Date")
+        forward_file = config['forward_file']
+        if not os.path.exists(forward_file):
+            forward_file = "forward_sample.csv"
+        
+        forward_data = pd.read_csv(forward_file)
+        
+        # Get date range info
+        if hasattr(data.index, 'min'):
+            date_start = str(data.index.min())
+            date_end = str(data.index.max())
+        elif 'Date' in data.columns:
+            date_start = str(data['Date'].min())
+            date_end = str(data['Date'].max())
+        else:
+            date_start = "N/A"
+            date_end = "N/A"
         
         return jsonify({
             'training_samples': len(data),
             'forward_samples': len(forward_data),
             'features_count': len(data.columns) - 6,
             'date_range': {
-                'start': str(data.index.min()),
-                'end': str(data.index.max())
-            }
+                'start': date_start,
+                'end': date_end
+            },
+            'market': MARKET,
+            'index_name': config['index_name'],
+            'currency': config['currency']
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

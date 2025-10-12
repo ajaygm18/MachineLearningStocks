@@ -14,6 +14,9 @@
             <div class="logo">
                 <h1>📈 MachineLearningStocks</h1>
                 <p>AI-Powered Stock Market Prediction System</p>
+                <p style="font-size: 0.9em; opacity: 0.8; margin-top: 5px;">
+                    <span id="market-info">Loading market info...</span>
+                </p>
             </div>
             <div class="header-stats">
                 <div class="stat-card">
@@ -84,7 +87,7 @@
         <div id="predictions" class="tab-content">
             <div class="card">
                 <h2>🎯 Stock Predictions</h2>
-                <p class="subtitle">Stocks predicted to outperform S&P500 by more than 10%</p>
+                <p class="subtitle" id="predictions-subtitle">Stocks predicted to outperform the market by more than 10%</p>
                 
                 <button class="btn btn-primary" onclick="generatePredictions()">
                     Generate New Predictions
