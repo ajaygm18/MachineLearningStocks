@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MachineLearningStocks - AI Stock Prediction Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <h1>📈 MachineLearningStocks</h1>
+                <p>AI-Powered Stock Market Prediction System</p>
+                <p style="font-size: 0.9em; opacity: 0.8; margin-top: 5px;">
+                    <span id="market-info">Loading market info...</span>
+                </p>
+            </div>
+            <div class="header-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value" id="status">Ready</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
+            <button class="nav-tab" onclick="showTab('predictions')">Stock Predictions</button>
+            <button class="nav-tab" onclick="showTab('backtesting')">Backtesting</button>
+            <button class="nav-tab" onclick="showTab('analysis')">Model Analysis</button>
+        </nav>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h2>📊 Dataset Information</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Training Samples</span>
+                            <span class="info-value" id="training-samples">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Forward Samples</span>
+                            <span class="info-value" id="forward-samples">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Features</span>
+                            <span class="info-value" id="features-count">Loading...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Date Range</span>
+                            <span class="info-value" id="date-range">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>🎯 Quick Actions</h2>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="runBacktest()">
+                            🔄 Run Backtest
+                        </button>
+                        <button class="btn btn-success" onclick="generatePredictions()">
+                            ⚡ Generate Predictions
+                        </button>
+                        <button class="btn btn-info" onclick="loadFeatureImportance()">
+                            📈 View Feature Importance
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card full-width">
+                    <h2>📈 Model Performance Overview</h2>
+                    <div id="overview-message" class="message-box">
+                        Click "Run Backtest" to see model performance metrics
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Predictions Tab -->
+        <div id="predictions" class="tab-content">
+            <div class="card">
+                <h2>🎯 Stock Predictions</h2>
+                <p class="subtitle" id="predictions-subtitle">Stocks predicted to outperform the market by more than 10%</p>
+                
+                <button class="btn btn-primary" onclick="generatePredictions()">
+                    Generate New Predictions
+                </button>
+                
+                <div id="predictions-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Generating predictions...</p>
+                </div>
+                
+                <div id="predictions-results" style="margin-top: 20px;">
+                    <div class="message-box">
+                        Click "Generate New Predictions" to see the latest stock recommendations
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backtesting Tab -->
+        <div id="backtesting" class="tab-content">
+            <div class="card">
+                <h2>🔬 Backtesting Results</h2>
+                <p class="subtitle">Historical performance analysis of the ML model</p>
+                
+                <button class="btn btn-primary" onclick="runBacktest()">
+                    Run Backtest Analysis
+                </button>
+                
+                <div id="backtest-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Running backtest...</p>
+                </div>
+                
+                <div id="backtest-results" style="margin-top: 20px;">
+                    <div class="message-box">
+                        Click "Run Backtest Analysis" to evaluate model performance
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div id="analysis" class="tab-content">
+            <div class="card">
+                <h2>🧠 Model Analysis</h2>
+                <p class="subtitle">Feature importance and model insights</p>
+                
+                <button class="btn btn-primary" onclick="loadFeatureImportance()">
+                    Load Feature Analysis
+                </button>
+                
+                <div id="analysis-loading" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing features...</p>
+                </div>
+                
+                <div id="feature-chart" style="margin-top: 20px;"></div>
+                
+                <div id="analysis-message" class="message-box">
+                    Click "Load Feature Analysis" to see which features are most important for predictions
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>MachineLearningStocks © 2025 | Powered by Machine Learning & Flask</p>
+            <p>Using Random Forest Classifier with real historical stock data</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
